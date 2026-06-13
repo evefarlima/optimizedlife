@@ -4,28 +4,18 @@
 
 const CONFIG = {
     // ⏱️ Tempo de Delay: Formato "Minutos:Segundos"
-    // Exemplo: "48:55", "12:00" ou "00:15"
-    tempoDeDelay: "00:10",
+    tempoDeDelay: "30:00", // Altere para "00:10" para testar em 10 segundos!
 
     // 🔗 Links de Checkout dos Botões
-    // Tracking (UTMs, subid, fbclid etc.) é responsabilidade do UTMify — ele
-    // reescreve os hrefs automaticamente no carregamento da página.
     linkPote2: "https://glpropatche.com/b?p=GPP2V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286",
     linkPote6: "https://glpropatche.com/b?p=GPP6V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286",
     linkPote3: "https://glpropatche.com/b?p=GPP3V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286"
 };
 
 // =====================================================================
-// 💻 CÓDIGO DO SISTEMA (Não precisa alterar nada daqui para baixo)
+// 💻 CÓDIGO DO SISTEMA (Sincronizado com VTurb)
 // =====================================================================
 
-// ---------------------------------------------------------------------
-// DOM Ready
-// ---------------------------------------------------------------------
-// IMPORTANTE: este script é carregado de forma lazy pelo index.html (após
-// 20s, scroll ou click). Quando ele finalmente roda, o DOMContentLoaded
-// já disparou — então usamos um wrapper que executa imediatamente se o
-// DOM já estiver pronto, ou agenda para quando ficar pronto.
 function onDomReady(callback) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', callback);
@@ -37,47 +27,73 @@ function onDomReady(callback) {
 onDomReady(function() {
 
     // 1. APLICAR LINKS DE CHECKOUT
-    // Tracking é responsabilidade do UTMify — ele intercepta os hrefs e injeta
-    // UTMs, subid, fbclid e click IDs automaticamente. Aqui só setamos a base.
     document.getElementById('card-2-bottles').href = CONFIG.linkPote2;
     document.getElementById('card-6-bottles').href = CONFIG.linkPote6;
     document.getElementById('card-3-bottles').href = CONFIG.linkPote3;
 
-    // 2. SISTEMA DE DELAY DA OFERTA E NOTIFICAÇÕES
-    function calcularDelayEmMilissegundos(tempoStr) {
+    // Converte o tempo do formato "MM:SS" para segundos puros
+    function converterParaSegundos(tempoStr) {
         const partes = tempoStr.split(':');
         const minutos = parseInt(partes[0], 10) || 0;
         const segundos = parseInt(partes[1], 10) || 0;
-        const totalSegundos = (minutos * 60) + segundos;
-        return totalSegundos * 1000;
+        return (minutos * 60) + segundos;
     }
 
-    // O QUE ESTÁ AQUI DENTRO SÓ ACONTECE APÓS O TEMPO DO DELAY
-    setTimeout(() => {
-        // A. Revela a área com os botões e garantia
+    const tempoAlvoSegundos = converterParaSegundos(CONFIG.tempoDeDelay);
+    let ofertaExibida = false;
+
+    // Função que efetivamente mostra os botões e ativa os pop-ups
+    function revelarOferta() {
+        if (ofertaExibida) return; // Evita rodar duas vezes
+        ofertaExibida = true;
+        
+        // Revela a área oculta
         document.querySelector('.video-cta-container').style.display = 'block';
+        
+        // Inicia as notificações falsas
+        if (typeof startAllNotifications === 'function') {
+            startAllNotifications();
+        }
+    }
 
-        // B. Inicia os pop-ups de vendas falsas apenas agora!
-        startAllNotifications();
+    // 2. INTEGRAÇÃO DIRETA COM A API DO VTURB (Sincronização por segundo)
+    window.vTurbOnPlayerReady = window.vTurbOnPlayerReady || [];
+    window.vTurbOnPlayerReady.push(function(player) {
+        
+        // Toda vez que o tempo do vídeo muda, o VTurb avisa essa função
+        player.on('timeupdate', function(data) {
+            const tempoAtualDoVideo = data.currentTime;
+            
+            // Se o vídeo chegou no tempo configurado, mostra a oferta!
+            if (tempoAtualDoVideo >= tempoAlvoSegundos) {
+                revelarOferta();
+            }
+        });
+    });
 
-    }, calcularDelayEmMilissegundos(CONFIG.tempoDeDelay));
+    // BACKUP DE SEGURANÇA: Se o player falhar, abre por tempo de página
+    setTimeout(() => {
+        revelarOferta();
+    }, (tempoAlvoSegundos + 10) * 1000); 
 
 
-    // 3. SISTEMA DO CONTADOR DE PESSOAS ASSISTINDO (Roda desde o início)
+    // 3. SISTEMA DO CONTADOR DE PESSOAS ASSISTINDO
     function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1) + min); }
     function updateCounter() {
-        var currentCount = parseInt(document.getElementById('viewsCount').textContent.replace(/,/g, ''), 10);
+        var viewsEl = document.getElementById('viewsCount');
+        if(!viewsEl) return;
+        var currentCount = parseInt(viewsEl.textContent.replace(/,/g, ''), 10);
         var increment = getRandomInt(1, 5);
         var nextCount = currentCount + increment;
-        document.getElementById('viewsCount').textContent = nextCount.toLocaleString('en-US');
-        var nextDelay = getRandomInt(1500, 3000);
-        setTimeout(updateCounter, nextDelay);
+        viewsEl.textContent = nextCount.toLocaleString('en-US');
+        setTimeout(updateCounter, getRandomInt(1500, 3000));
     }
-    document.getElementById('viewsCount').textContent = '71,712';
-    updateCounter();
+    if(document.getElementById('viewsCount')) {
+        document.getElementById('viewsCount').textContent = '71,712';
+        updateCounter();
+    }
 
-
-    // 4. SISTEMA DE NOTIFICAÇÕES FALSAS DE COMPRA (POP-UPS)
+    // 4. SISTEMA DE NOTIFICAÇÕES FALSAS DE COMPRA
     const customerNames = ["Olivia", "Emma", "Ava", "Charlotte", "Sophia", "Amelia", "Isabella", "Mia", "Evelyn", "Harper", "Camila", "Gianna", "Abigail", "Luna", "Ella", "Elizabeth", "Sofia", "Emily", "Avery", "Mila", "Liam", "Noah", "Oliver", "Elijah", "William", "James", "Benjamin", "Lucas", "Henry", "Alexander"];
     const states = [
         {"name": "Alabama", "abbreviation": "al"}, {"name": "Alaska", "abbreviation": "ak"}, {"name": "Arizona", "abbreviation": "az"}, {"name": "Arkansas", "abbreviation": "ar"}, {"name": "California", "abbreviation": "ca"}, {"name": "Colorado", "abbreviation": "co"}, {"name": "Florida", "abbreviation": "fl"}, {"name": "Georgia", "abbreviation": "ga"}, {"name": "Hawaii", "abbreviation": "hi"}, {"name": "Illinois", "abbreviation": "il"}, {"name": "Texas", "abbreviation": "tx"}, {"name": "New York", "abbreviation": "ny"}
@@ -86,6 +102,7 @@ onDomReady(function() {
 
     function startAllNotifications() {
         const purchaseNotification = document.getElementById('purchase-notification');
+        if(!purchaseNotification) return;
 
         function updateNotificationContent(name, location, product, image) {
             purchaseNotification.querySelector('.customer-name').textContent = name;
@@ -102,24 +119,21 @@ onDomReady(function() {
 
             updateNotificationContent(name, state.name, product, image);
 
+            purchaseNotification.classList.add('show');
             setTimeout(() => {
-                purchaseNotification.classList.add('show');
-                setTimeout(() => {
-                    purchaseNotification.classList.remove('show');
-                    purchaseNotification.classList.add('hide');
-                    setTimeout(() => purchaseNotification.classList.remove('hide'), 500);
-                }, 10000); // Fica na tela por 10 segundos
-            }, 500);
+                purchaseNotification.classList.remove('show');
+                purchaseNotification.classList.add('hide');
+                setTimeout(() => purchaseNotification.classList.remove('hide'), 500);
+            }, 10000);
         }
 
         function startRandomInterval() {
             setTimeout(() => {
                 showNotification();
                 startRandomInterval();
-            }, Math.random() * (30000 - 10000) + 11000); // Próximas demoram entre 11s e 30s
+            }, Math.random() * (30000 - 10000) + 11000);
         }
 
-        // Mostra a primeira notificação 2 segundos APÓS os botões aparecerem
         setTimeout(() => {
             showNotification();
             startRandomInterval();
