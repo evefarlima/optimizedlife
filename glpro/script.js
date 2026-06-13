@@ -4,136 +4,125 @@
 
 const CONFIG = {
     // ⏱️ Tempo de Delay: Formato "Minutos:Segundos"
-    tempoDeDelay: "00:10", // Deixe em 00:10 para testar. Depois mude para 30:00
+    // Exemplo: "48:55", "12:00" ou "00:15"
+    tempoDeDelay: "00:10",
 
     // 🔗 Links de Checkout dos Botões
+    // Tracking (UTMs, subid, fbclid etc.) é responsabilidade do UTMify — ele
+    // reescreve os hrefs automaticamente no carregamento da página.
     linkPote2: "https://glpropatche.com/b?p=GPP2V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286",
     linkPote6: "https://glpropatche.com/b?p=GPP6V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286",
     linkPote3: "https://glpropatche.com/b?p=GPP3V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286"
 };
 
 // =====================================================================
-// 💻 CÓDIGO DO SISTEMA ULTRA-RESISTENTE
+// 💻 CÓDIGO DO SISTEMA (Não precisa alterar nada daqui para baixo)
 // =====================================================================
 
-(function() {
-    // 1. Converte tempo "MM:SS" para segundos
-    function converterParaSegundos(tempoStr) {
+// ---------------------------------------------------------------------
+// DOM Ready
+// ---------------------------------------------------------------------
+// IMPORTANTE: este script é carregado de forma lazy pelo index.html (após
+// 20s, scroll ou click). Quando ele finalmente roda, o DOMContentLoaded
+// já disparou — então usamos um wrapper que executa imediatamente se o
+// DOM já estiver pronto, ou agenda para quando ficar pronto.
+function onDomReady(callback) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', callback);
+    } else {
+        callback();
+    }
+}
+
+onDomReady(function() {
+
+    // 1. APLICAR LINKS DE CHECKOUT
+    // Tracking é responsabilidade do UTMify — ele intercepta os hrefs e injeta
+    // UTMs, subid, fbclid e click IDs automaticamente. Aqui só setamos a base.
+    document.getElementById('card-2-bottles').href = CONFIG.linkPote2;
+    document.getElementById('card-6-bottles').href = CONFIG.linkPote6;
+    document.getElementById('card-3-bottles').href = CONFIG.linkPote3;
+
+    // 2. SISTEMA DE DELAY DA OFERTA E NOTIFICAÇÕES
+    function calcularDelayEmMilissegundos(tempoStr) {
         const partes = tempoStr.split(':');
         const minutos = parseInt(partes[0], 10) || 0;
         const segundos = parseInt(partes[1], 10) || 0;
-        return (minutos * 60) + segundos;
+        const totalSegundos = (minutos * 60) + segundos;
+        return totalSegundos * 1000;
     }
 
-    const tempoAlvo = converterParaSegundos(CONFIG.tempoDeDelay);
-    let ofertaExibida = false;
+    // O QUE ESTÁ AQUI DENTRO SÓ ACONTECE APÓS O TEMPO DO DELAY
+    setTimeout(() => {
+        // A. Revela a área com os botões e garantia
+        document.querySelector('.video-cta-container').style.display = 'block';
 
-    // 2. Função Suprema para Mostrar a Oferta
-    function revelarOferta() {
-        if (ofertaExibida) return;
-        ofertaExibida = true;
+        // B. Inicia os pop-ups de vendas falsas apenas agora!
+        startAllNotifications();
 
-        console.log("🚀 ATIVANDO OFERTA AGORA!");
+    }, calcularDelayEmMilissegundos(CONFIG.tempoDeDelay));
 
-        // Configura os links dos botões com segurança
-        const btn2 = document.getElementById('card-2-bottles');
-        const btn6 = document.getElementById('card-6-bottles');
-        const btn3 = document.getElementById('card-3-bottles');
-        if(btn2) btn2.href = CONFIG.linkPote2;
-        if(btn6) btn6.href = CONFIG.linkPote6;
-        if(btn3) btn3.href = CONFIG.linkPote3;
 
-        // Força a exibição tirando qualquer bloqueio de CSS
-        const ctaContainer = document.querySelector('.video-cta-container');
-        if (ctaContainer) {
-            ctaContainer.style.setProperty('display', 'block', 'important');
-        }
-
-        // Liga os Pop-ups
-        if (typeof startAllNotifications === 'function') {
-            startAllNotifications();
-        }
+    // 3. SISTEMA DO CONTADOR DE PESSOAS ASSISTINDO (Roda desde o início)
+    function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1) + min); }
+    function updateCounter() {
+        var currentCount = parseInt(document.getElementById('viewsCount').textContent.replace(/,/g, ''), 10);
+        var increment = getRandomInt(1, 5);
+        var nextCount = currentCount + increment;
+        document.getElementById('viewsCount').textContent = nextCount.toLocaleString('en-US');
+        var nextDelay = getRandomInt(1500, 3000);
+        setTimeout(updateCounter, nextDelay);
     }
+    document.getElementById('viewsCount').textContent = '71,712';
+    updateCounter();
 
-    // 3. MONITORAMENTO VIA SMARTPLAYER (MÉTODO LOCAL)
-    function checarTempoVideo() {
-        // Tenta encontrar o player de várias formas possíveis
-        const playerEl = document.querySelector('vturb-smartplayer') || document.querySelector('iframe[src*="converteai"]');
-        
-        if (playerEl) {
-            // A VTurb costuma salvar o estado do tempo no localStorage ou via atributo
-            // Vamos checar se ela disparou a classe de "segundos assistidos" que ela cria nativamente
-            if (window.smartplayer && window.smartplayer.instances) {
-                for (const id in window.smartplayer.instances) {
-                    const instancia = window.smartplayer.instances[id];
-                    if (instancia && instancia.video && instancia.video.currentTime >= tempoAlvo) {
-                        revelarOferta();
-                        clearInterval(intervaloVar);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-    // Roda uma checagem a cada 1 segundo para garantir que não vai passar batido
-    const intervaloVar = setInterval(checarTempoVideo, 1000);
 
-    // 4. EVENTO NATIVO DO VTURB (Se o de cima falhar, esse pega)
-    window.addEventListener("message", function(event) {
-        if (event.data && event.data.vTurbEvent === "timeupdate") {
-            if (event.data.currentTime >= tempoAlvo) {
-                revelarOferta();
-                clearInterval(intervaloVar);
-            }
-        }
-    });
-
-    // 5. TRUQUE DA PRÓPRIA VTURB (A VTurb avisa a página quando o delay deles acaba)
-    // Se você configurou um delay no painel da VTurb, ela roda essa função sozinha:
-    window.vTurbOnDelayEnd = function() {
-        revelarOferta();
-        clearInterval(intervaloVar);
-    };
-
-    // 6. CONTADOR DE PESSOAS ASSISTINDO (Independente e imune a erros)
-    setInterval(function() {
-        var viewsEl = document.getElementById('viewsCount');
-        if(!viewsEl) return;
-        var currentCount = parseInt(viewsEl.textContent.replace(/,/g, ''), 10) || 71712;
-        currentCount += Math.floor(Math.random() * 5) + 1;
-        viewsEl.textContent = currentCount.toLocaleString('en-US');
-    }, 2000);
-
-})();
-
-// 7. SISTEMA DE NOTIFICAÇÕES FALSAS (Ajustado para não travar)
-function startAllNotifications() {
-    const purchaseNotification = document.getElementById('purchase-notification');
-    if(!purchaseNotification) return;
-
-    const customerNames = ["Olivia", "Emma", "Ava", "Charlotte", "Sophia", "Amelia", "Isabella", "Mia", "Evelyn", "Harper"];
-    const states = [{"name": "Alabama", "abbreviation": "al"}, {"name": "California", "abbreviation": "ca"}, {"name": "Florida", "abbreviation": "fl"}, {"name": "Texas", "abbreviation": "tx"}, {"name": "New York", "abbreviation": "ny"}];
+    // 4. SISTEMA DE NOTIFICAÇÕES FALSAS DE COMPRA (POP-UPS)
+    const customerNames = ["Olivia", "Emma", "Ava", "Charlotte", "Sophia", "Amelia", "Isabella", "Mia", "Evelyn", "Harper", "Camila", "Gianna", "Abigail", "Luna", "Ella", "Elizabeth", "Sofia", "Emily", "Avery", "Mila", "Liam", "Noah", "Oliver", "Elijah", "William", "James", "Benjamin", "Lucas", "Henry", "Alexander"];
+    const states = [
+        {"name": "Alabama", "abbreviation": "al"}, {"name": "Alaska", "abbreviation": "ak"}, {"name": "Arizona", "abbreviation": "az"}, {"name": "Arkansas", "abbreviation": "ar"}, {"name": "California", "abbreviation": "ca"}, {"name": "Colorado", "abbreviation": "co"}, {"name": "Florida", "abbreviation": "fl"}, {"name": "Georgia", "abbreviation": "ga"}, {"name": "Hawaii", "abbreviation": "hi"}, {"name": "Illinois", "abbreviation": "il"}, {"name": "Texas", "abbreviation": "tx"}, {"name": "New York", "abbreviation": "ny"}
+    ];
     const productNames = ["2 Bottles of GLPro", "3 Bottles of GLPro", "6 Bottles of GLPro"];
 
-    function showNotification() {
-        const name = customerNames[Math.floor(Math.random() * customerNames.length)];
-        const state = states[Math.floor(Math.random() * states.length)];
-        const product = productNames[Math.floor(Math.random() * productNames.length)];
-        
-        purchaseNotification.querySelector('.customer-name').textContent = name;
-        purchaseNotification.querySelector('.customer-location').textContent = state.name;
-        purchaseNotification.querySelector('.product-name').textContent = product;
-        purchaseNotification.querySelector('.profile-image').src = `https://flagcdn.com/h40/us-${state.abbreviation}.png`;
+    function startAllNotifications() {
+        const purchaseNotification = document.getElementById('purchase-notification');
 
-        purchaseNotification.style.display = 'block';
-        purchaseNotification.classList.add('show');
-        
+        function updateNotificationContent(name, location, product, image) {
+            purchaseNotification.querySelector('.customer-name').textContent = name;
+            purchaseNotification.querySelector('.customer-location').textContent = location;
+            purchaseNotification.querySelector('.product-name').textContent = product;
+            purchaseNotification.querySelector('.profile-image').src = image;
+        }
+
+        function showNotification() {
+            const name = customerNames[Math.floor(Math.random() * customerNames.length)];
+            const state = states[Math.floor(Math.random() * states.length)];
+            const product = productNames[Math.floor(Math.random() * productNames.length)];
+            const image = `https://flagcdn.com/h40/us-${state.abbreviation}.png`;
+
+            updateNotificationContent(name, state.name, product, image);
+
+            setTimeout(() => {
+                purchaseNotification.classList.add('show');
+                setTimeout(() => {
+                    purchaseNotification.classList.remove('show');
+                    purchaseNotification.classList.add('hide');
+                    setTimeout(() => purchaseNotification.classList.remove('hide'), 500);
+                }, 10000); // Fica na tela por 10 segundos
+            }, 500);
+        }
+
+        function startRandomInterval() {
+            setTimeout(() => {
+                showNotification();
+                startRandomInterval();
+            }, Math.random() * (30000 - 10000) + 11000); // Próximas demoram entre 11s e 30s
+        }
+
+        // Mostra a primeira notificação 2 segundos APÓS os botões aparecerem
         setTimeout(() => {
-            purchaseNotification.classList.remove('show');
-            setTimeout(() => purchaseNotification.style.display = 'none', 500);
-        }, 8000);
+            showNotification();
+            startRandomInterval();
+        }, 2000);
     }
-
-    setTimeout(showNotification, 2000);
-    setInterval(showNotification, 25000);
-}
+});
