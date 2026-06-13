@@ -5,7 +5,7 @@
 const CONFIG = {
     // ⏱️ Tempo de Delay: Formato "Minutos:Segundos"
     // Exemplo: "48:55", "12:00" ou "00:15"
-    tempoDeDelay: "30:00",
+    tempoDeDelay: "00:10",
 
     // 🔗 Links de Checkout dos Botões
     // Tracking (UTMs, subid, fbclid etc.) é responsabilidade do UTMify — ele
