@@ -4,7 +4,7 @@
 
 const CONFIG = {
     // ⏱️ Tempo de Delay: Formato "Minutos:Segundos"
-    tempoDeDelay: "30:00", // Altere para "00:10" para testar em 10 segundos!
+    tempoDeDelay: "00:10", // Altere para "00:10" para testar em 10 segundos!
 
     // 🔗 Links de Checkout dos Botões
     linkPote2: "https://glpropatche.com/b?p=GPP2V1&b=341&fid=640&fnid=2&pfnid=1&pg=9467&aff_id=1286",
